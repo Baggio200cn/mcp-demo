@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP客户端与服务器架构 - 交互式教学演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            color: #ffffff;
+        }
+        
+        .container {
+            width: 100vw;
+            height: 100vh;
+            max-width: 1920px;
+            max-height: 1080px;
+            position: relative;
+            background: radial-gradient(ellipse at center, #1a2332 0%, #0f1419 100%);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .fullscreen-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .fullscreen-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .header {
+            height: 80px;
+            background: rgba(26, 35, 50, 0.9);
+            border-bottom: 2px solid #2a3f5f;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .title {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #4fc3f7, #667eea, #ab68ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 1px;
+        }
+        
+        .step-indicator {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .step-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .step-dot.active {
+            background: linear-gradient(135deg, #4fc3f7, #667eea);
+            box-shadow: 0 0 20px rgba(79, 195, 247, 0.5);
+            transform: scale(1.3);
+        }
+        
+        .main-content {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+        
+        .scene {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        
+        .scene.active {
+            display: flex;
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        .intro-content {
+            text-align: center;
+            max-width: 900px;
+        }
+        
+        .intro-title {
+            font-size: 56px;
+            font-weight: 800;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: glow 3s ease-in-out infinite;
+        }
+        
+        @keyframes glow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+        
+        .intro-subtitle {
+            font-size: 24px;
+            color: #8892b0;
+            margin-bottom: 50px;
+            line-height: 1.6;
+        }
+        
+        .intro-icons {
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+            margin-top: 60px;
+        }
+        
+        .intro-icon {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            transition: all 0.3s ease;
+        }
+        
+        .intro-icon:hover {
+            transform: translateY(-10px);
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #667eea;
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+        }
+        
+        .restaurant-model {
+            width: 100%;
+            max-width: 1400px;
+            height: 700px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 40px;
+        }
+        
+        .actor-card {
+            flex: 1;
+            height: 500px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .actor-card.active {
+            background: rgba(102, 126, 234, 0.05);
+            border-color: #667eea;
+            transform: scale(1.05);
+            box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
+        }
+        
+        .actor-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        
+        .actor-title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #4fc3f7;
+        }
+        
+        .actor-subtitle {
+            font-size: 18px;
+            color: #8892b0;
+            margin-bottom: 30px;
+        }
+        
+        .actor-features {
+            list-style: none;
+            width: 100%;
+        }
+        
+        .actor-features li {
+            padding: 12px;
+            margin: 8px 0;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+            color: #ccd6f6;
+            font-size: 16px;
+        }
+        
+        .workflow-container {
+            width: 100%;
+            max-width: 1600px;
+            padding: 40px;
+        }
+        
+        .workflow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .workflow-node {
+            flex: 1;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .workflow-node.highlight {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #667eea;
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.3);
+        }
+        
+        .workflow-arrow {
+            font-size: 32px;
+            color: #667eea;
+        }
+        
+        .code-block {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 16px;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+        
+        .scenarios-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .scenario-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            transition: all 0.3s ease;
+        }
+        
+        .scenario-card:hover {
+            background: rgba(102, 126, 234, 0.05);
+            border-color: #667eea;
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+        }
+        
+        .scenario-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            display: block;
+            text-align: center;
+        }
+        
+        .scenario-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #4fc3f7;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .scenario-desc {
+            color: #8892b0;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 100;
+        }
+        
+        .control-btn {
+            padding: 15px 30px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .control-btn:hover {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+        
+        .control-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        
+        @media (max-width: 1024px) {
+            .scenarios-grid {
+                grid-template-columns: 1fr;
+            }
+            .restaurant-model {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="fullscreen-btn" id="fullscreenBtn">🖥️ 全屏模式</button>
+    
+    <div class="container">
+        <div class="header">
+            <h1 class="title">MCP 客户端与服务器架构</h1>
+            <div class="step-indicator" id="stepIndicator">
+                <div class="step-dot active" data-scene="0"></div>
+                <div class="step-dot" data-scene="1"></div>
+                <div class="step-dot" data-scene="2"></div>
+                <div class="step-dot" data-scene="3"></div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="scene active" data-scene-id="0">
+                <div class="intro-content">
+                    <h2 class="intro-title">理解 MCP 架构</h2>
+                    <p class="intro-subtitle">
+                        Model Context Protocol (MCP) 是连接 AI 应用与外部工具的桥梁<br>
+                        让我们通过一个生动的比喻来理解它的工作原理
+                    </p>
+                    <div class="intro-icons">
+                        <div class="intro-icon">👤</div>
+                        <div class="intro-icon">📱</div>
+                        <div class="intro-icon">👨‍🍳</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="scene" data-scene-id="1">
+                <div class="restaurant-model">
+                    <div class="actor-card">
+                        <div class="actor-icon">👤</div>
+                        <h3 class="actor-title">顾客</h3>
+                        <p class="actor-subtitle">你的应用 / Claude</p>
+                        <ul class="actor-features">
+                            <li>想要点餐（需要功能）</li>
+                            <li>不会做菜（不能直接操作）</li>
+                            <li>只会看菜单（发送请求）</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="actor-card">
+                        <div class="actor-icon">📱</div>
+                        <h3 class="actor-title">服务员</h3>
+                        <p class="actor-subtitle">MCP 客户端</p>
+                        <ul class="actor-features">
+                            <li>懂顾客语言（理解需求）</li>
+                            <li>与厨房沟通（协议转换）</li>
+                            <li>传递订单（数据传输）</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="actor-card">
+                        <div class="actor-icon">👨‍🍳</div>
+                        <h3 class="actor-title">厨房</h3>
+                        <p class="actor-subtitle">MCP 服务器</p>
+                        <ul class="actor-features">
+                            <li>有厨具食材（工具数据）</li>
+                            <li>会做菜（实现功能）</li>
+                            <li>规范订单（标准协议）</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="scene" data-scene-id="2">
+                <div class="workflow-container">
+                    <h3 style="color: #4fc3f7; font-size: 32px; text-align: center;">工作流程演示</h3>
+                    <div class="workflow-diagram">
+                        <div class="workflow-node highlight">
+                            <div style="font-size: 40px;">👤</div>
+                            <p>顾客请求</p>
+                        </div>
+                        <div class="workflow-arrow">→</div>
+                        <div class="workflow-node">
+                            <div style="font-size: 40px;">📱</div>
+                            <p>服务员转达</p>
+                        </div>
+                        <div class="workflow-arrow">→</div>
+                        <div class="workflow-node">
+                            <div style="font-size: 40px;">👨‍🍳</div>
+                            <p>厨房处理</p>
+                        </div>
+                    </div>
+                    <div class="code-block">
+                        <span style="color: #ff79c6;">async def</span> <span style="color: #50fa7b;">list_tools</span>():<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;result = <span style="color: #ff79c6;">await</span> session.list_tools()<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #ff79c6;">return</span> result.tools
+                    </div>
+                </div>
+            </div>
+            
+            <div class="scene" data-scene-id="3">
+                <div class="scenarios-grid">
+                    <div class="scenario-card">
+                        <span class="scenario-icon">🍴</span>
+                        <h3 class="scenario-title">只需要客户端</h3>
+                        <p class="scenario-desc">
+                            使用别人的餐厅（外部服务器）<br>
+                            如：GitHub MCP、Slack MCP
+                        </p>
+                    </div>
+                    
+                    <div class="scenario-card">
+                        <span class="scenario-icon">👨‍🍳</span>
+                        <h3 class="scenario-title">只需要服务器</h3>
+                        <p class="scenario-desc">
+                            开自己的厨房（提供服务）<br>
+                            如：公司内部API、工具集
+                        </p>
+                    </div>
+                    
+                    <div class="scenario-card">
+                        <span class="scenario-icon">🏪</span>
+                        <h3 class="scenario-title">两者都需要</h3>
+                        <p class="scenario-desc">
+                            教学项目或混合应用<br>
+                            如：本地测试、平台服务
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="control-btn" id="prevBtn">⬅ 上一步</button>
+            <button class="control-btn primary" id="playBtn">▶ 播放动画</button>
+            <button class="control-btn" id="nextBtn">下一步 ➡</button>
+        </div>
+    </div>
+    
+    <script>
+    (function() {
+        'use strict';
+        
+        let currentScene = 0;
+        const totalScenes = 4;
+        let isPlaying = false;
+        
+        // 获取所有场景元素
+        const scenes = document.querySelectorAll('.scene');
+        const dots = document.querySelectorAll('.step-dot');
+        
+        // 切换场景
+        function goToScene(index) {
+            if (index < 0 || index >= totalScenes) return;
+            
+            // 移除所有active类
+            scenes.forEach(s => s.classList.remove('active'));
+            dots.forEach(d => d.classList.remove('active'));
+            
+            // 添加active类到当前场景
+            scenes[index].classList.add('active');
+            dots[index].classList.add('active');
+            
+            currentScene = index;
+            
+            // 场景特定动画
+            if (index === 1) {
+                animateCards();
+            }
+        }
+        
+        // 动画卡片
+        function animateCards() {
+            const cards = document.querySelectorAll('.actor-card');
+            cards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.classList.add('active');
+                    setTimeout(() => {
+                        card.classList.remove('active');
+                    }, 1500);
+                }, index * 1000);
+            });
+        }
+        
+        // 播放动画
+        function playAnimation() {
+            if (isPlaying) return;
+            isPlaying = true;
+            
+            let index = 0;
+            const interval = setInterval(() => {
+                goToScene(index);
+                index++;
+                
+                if (index >= totalScenes) {
+                    clearInterval(interval);
+                    isPlaying = false;
+                    setTimeout(() => goToScene(0), 2000);
+                }
+            }, 3000);
+        }
+        
+        // 全屏切换
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    document.getElementById('fullscreenBtn').textContent = '🔲 退出全屏';
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    document.getElementById('fullscreenBtn').textContent = '🖥️ 全屏模式';
+                });
+            }
+        }
+        
+        // 绑定事件
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            goToScene(currentScene - 1);
+        });
+        
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            goToScene(currentScene + 1);
+        });
+        
+        document.getElementById('playBtn').addEventListener('click', playAnimation);
+        
+        document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+        
+        // 点击指示器
+        dots.forEach((dot, index) => {
+            dot.addEventListener('click', () => goToScene(index));
+        });
+        
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft':
+                    goToScene(currentScene - 1);
+                    break;
+                case 'ArrowRight':
+                    goToScene(currentScene + 1);
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    playAnimation();
+                    break;
+                case 'f':
+                case 'F':
+                    toggleFullscreen();
+                    break;
+            }
+        });
+        
+        // 初始化
+        goToScene(0);
+        
+        // 确保页面加载完成
+        console.log('MCP演示加载完成！');
+        console.log('快捷键：左右箭头切换，空格播放，F全屏');
+    })();
+    </script>
+</body>
+</html>
